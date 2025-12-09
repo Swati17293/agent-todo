@@ -21,9 +21,12 @@ This project demonstrates a minimal “agent loop” — plan → execute → re
 - Ollama **enabled** (CPU-only small model → slow + less capable)  
 - Use this to test **Ollama provider**  
 - Not HTTPS, intended only for temporary evaluation
-
-
 ---
+
+## Demo Screenshots
+
+![UI Demo 1](docs/demo1.png)
+![UI Demo 2](docs/demo2.png)
 
 ## ✨ Features
 
