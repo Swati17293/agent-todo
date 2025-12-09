@@ -5,28 +5,19 @@ This project demonstrates a minimal “agent loop” — plan → execute → re
 
 ---
 
-## 🌐 Live Demo Instances
+## 🌐 Live Demo Instances (Temporarily Hosted)
 
-### 🔗 https://agent-todo.fly.dev/ 
-(Temporary secure server — HTTPS)  
-- Faster and stable  
-- **Ollama NOT available** here  
-- Best for testing:  
-  - `mock`  
-  - `openai`  
-  - `hf`  
+#### 🔗 https://agent-todo.fly.dev/ 
+- Faster and stable, **Ollama NOT available**  
 
-### 🔗 http://13.60.227.208:8000/  
-(Temporary server — HTTP only)  
+#### 🔗 http://13.60.227.208:8000/ (AWS - HTTP only)  
 - Ollama **enabled** (CPU-only small model → slow + less capable)  
-- Use this to test **Ollama provider**  
-- Not HTTPS, intended only for temporary evaluation
 ---
 
 ## Demo Screenshots
 
-![UI Demo 1](docs/demo1.png)
-![UI Demo 2](docs/demo2.png)
+![UI Demo 1](docs/Agent-demo-1.png)
+![UI Demo 2](docs/Agent-demo-2.png)
 
 ## ✨ Features
 
