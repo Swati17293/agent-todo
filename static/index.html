@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Agent TODO Executor</title>
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <meta
+      name="description"
+      content="Simple agent that plans TODOs from a goal and executes them using different LLM providers."
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+    />
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+      :root {
+        --bg-dark: #0a0e27;
+        --bg-gradient-1: #1a1f3a;
+        --bg-gradient-2: #2d1b4e;
+        --card-bg: rgba(20, 25, 50, 0.6);
+        --accent-primary: #00f5ff;
+        --accent-secondary: #7c3aed;
+        --accent-tertiary: #f59e0b;
+        --accent-success: #10b981;
+        --text-main: #ffffff;
+        --text-muted: #94a3b8;
+        --border-color: rgba(0, 245, 255, 0.1);
+        --glow-primary: rgba(0, 245, 255, 0.3);
+        --glow-secondary: rgba(124, 58, 237, 0.3);
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Inter', sans-serif;
+        background: var(--bg-dark);
+        color: var(--text-main);
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+      }
+
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: 
+          radial-gradient(circle at 20% 30%, var(--bg-gradient-2) 0%, transparent 50%),
+          radial-gradient(circle at 80% 70%, var(--bg-gradient-1) 0%, transparent 50%),
+          radial-gradient(circle at 50% 50%, rgba(0, 245, 255, 0.03) 0%, transparent 50%);
+        animation: backgroundPulse 20s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      @keyframes backgroundPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.8; }
+      }
+
+      .container {
+        position: relative;
+        z-index: 1;
+      }
+
+      .glass-card {
+        background: var(--card-bg);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        box-shadow: 
+          0 8px 32px rgba(0, 0, 0, 0.4),
+          inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .glass-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(0, 245, 255, 0.1), transparent);
+        transition: left 0.7s;
+      }
+
+      .glass-card:hover::before {
+        left: 100%;
+      }
+
+      .glass-card:hover {
+        border-color: rgba(0, 245, 255, 0.3);
+        box-shadow: 
+          0 12px 48px rgba(0, 0, 0, 0.5),
+          0 0 30px var(--glow-primary);
+      }
+
+      .hero-section {
+        text-align: center;
+        margin-bottom: 0;
+        padding: 2rem 0 2.5rem 0;
+      }
+
+      .hero-icon {
+        font-size: 4rem;
+        display: inline-block;
+        animation: float 4s ease-in-out infinite;
+        filter: drop-shadow(0 0 30px var(--glow-primary));
+        margin-bottom: 1.5rem;
+      }
+
+      @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        25% { transform: translateY(-15px) rotate(-5deg); }
+        75% { transform: translateY(-10px) rotate(5deg); }
+      }
+
+      .hero-title {
+        font-size: 3rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 50%, var(--accent-tertiary) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 1rem;
+        letter-spacing: -2px;
+        line-height: 1.2;
+        text-shadow: 0 0 60px var(--glow-primary);
+      }
+
+      .hero-subtitle {
+        font-size: 1.15rem;
+        color: var(--text-muted);
+        font-weight: 400;
+        margin-bottom: 0.5rem;
+      }
+
+      .hero-badges {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 1rem;
+      }
+
+      .badge-glow {
+        background: rgba(0, 245, 255, 0.1);
+        border: 1px solid var(--accent-primary);
+        color: var(--accent-primary);
+        padding: 0.5rem 1.2rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        box-shadow: 0 0 20px var(--glow-primary);
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.7; }
+      }
+
+      .form-label {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--accent-primary);
+        margin-bottom: 0.65rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .form-label i {
+        font-size: 1.1rem;
+      }
+
+      .form-control, .form-select {
+        background: rgba(10, 14, 39, 0.8);
+        border: 1.5px solid rgba(0, 245, 255, 0.2);
+        color: var(--text-main);
+        border-radius: 12px;
+        padding: 0.8rem 1.1rem;
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+        font-weight: 400;
+      }
+
+      .form-control:focus, .form-select:focus {
+        background: rgba(10, 14, 39, 0.95);
+        border-color: var(--accent-primary);
+        box-shadow: 
+          0 0 0 4px var(--glow-primary),
+          0 0 30px var(--glow-primary);
+        color: white;
+        outline: none;
+      }
+
+      .form-control::placeholder {
+        color: #475569;
+        font-style: italic;
+      }
+
+      #activeTaskTextarea {
+        background-color: rgba(10, 14, 39, 0.3);
+      }
+
+      .form-text {
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        margin-top: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .btn {
+        padding: 0.7rem 1.4rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        border-radius: 12px;
+        border: none;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        letter-spacing: 0.5px;
+      }
+
+      .btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        transition: width 0.6s, height 0.6s;
+      }
+
+      .btn:active::before {
+        width: 400px;
+        height: 400px;
+      }
+
+      .btn-primary-gradient {
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        color: white;
+        box-shadow: 
+          0 6px 20px rgba(0, 245, 255, 0.4),
+          0 0 40px var(--glow-primary);
+      }
+
+      .btn-primary-gradient:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 
+          0 10px 30px rgba(0, 245, 255, 0.6),
+          0 0 60px var(--glow-primary);
+      }
+
+      .btn-success-glow {
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        box-shadow: 
+          0 6px 20px rgba(16, 185, 129, 0.4),
+          0 0 40px rgba(16, 185, 129, 0.3);
+      }
+
+      .btn-success-glow:hover:not(:disabled) {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 
+          0 10px 30px rgba(16, 185, 129, 0.6),
+          0 0 60px rgba(16, 185, 129, 0.4);
+      }
+
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none !important;
+      }
+
+      .card-header-custom {
+        background: rgba(0, 245, 255, 0.05);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1.5rem;
+      }
+
+      .card-header-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        margin: 0;
+      }
+
+      .card-header-title i {
+        font-size: 1.4rem;
+      }
+
+      .list-group-item {
+        background: transparent !important;
+        border: none !important;
+        border-left: 3px solid transparent;
+        color: var(--text-main);
+        padding: 1rem 1.25rem;
+        margin-bottom: 0.65rem;
+        border-radius: 0 !important;
+        transition: all 0.3s ease;
+        font-size: 0.85rem;
+      }
+
+      .list-group-item:hover {
+        background: transparent !important;
+        border-left-color: var(--accent-primary);
+        transform: translateX(8px);
+      }
+
+      .list-group-item:not(:last-child) {
+        margin-bottom: 1.2rem;
+        position: relative;
+      }
+
+      .list-group-item:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -0.6rem;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .task-text {
+        font-weight: 500;
+        line-height: 1.6;
+      }
+
+      .task-status {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--accent-primary);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-top: 0.5rem;
+        display: inline-block;
+      }
+
+      .terminal-window {
+        background: rgba(0, 0, 0, 0.6);
+        border: 1px solid rgba(0, 245, 255, 0.2);
+        border-radius: 12px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        color: var(--accent-primary);
+        padding: 1.25rem;
+        box-shadow: 
+          inset 0 2px 10px rgba(0, 0, 0, 0.8),
+          0 0 30px var(--glow-primary);
+        min-height: 300px;
+        position: relative;
+      }
+
+      .terminal-header {
+        color: #64748b;
+        font-size: 0.85rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid rgba(0, 245, 255, 0.1);
+        font-weight: 500;
+      }
+
+      #traceBox {
+        white-space: pre-wrap;
+        margin: 0;
+        color: #ffffff;
+        line-height: 1.7;
+        font-size: 0.85rem;
+      }
+
+      .badge-logs {
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid var(--border-color);
+        color: var(--text-muted);
+        padding: 0.4rem 0.8rem;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .divider-glow {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+        border: none;
+        margin: 2rem 0;
+        box-shadow: 0 0 10px var(--glow-primary);
+      }
+
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(10, 14, 39, 0.5);
+        border-radius: 5px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--accent-primary);
+        border-radius: 5px;
+        box-shadow: 0 0 10px var(--glow-primary);
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent-secondary);
+      }
+
+      @media (max-width: 768px) {
+        .hero-title {
+          font-size: 2.5rem;
+        }
+
+        .hero-icon {
+          font-size: 3.5rem;
+        }
+
+        .btn {
+          padding: 0.85rem 1.5rem;
+          font-size: 1rem;
+        }
+      }
+
+      .fade-in {
+        animation: fadeIn 0.6s ease-out;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message-alert {
+        background: transparent;
+        border-left: 4px solid var(--accent-tertiary);
+        padding: 0.8rem 1.5rem;
+        border-radius: 8px;
+        color: var(--accent-tertiary);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.95rem;
+        margin-top: 1.5rem;
+        box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+      }
+
+      .active-task-block {
+        background: rgba(10, 14, 39, 0.8);
+        border-radius: 16px;
+        border: 1px solid rgba(0, 245, 255, 0.22);
+        padding: 1rem 1.1rem 1.1rem;
+        margin-bottom: 1.5rem;
+        box-shadow:
+          0 8px 24px rgba(0, 0, 0, 0.5),
+          0 0 18px rgba(0, 245, 255, 0.25);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .active-task-block::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 0% 0%, rgba(0, 245, 255, 0.12), transparent 55%);
+        opacity: 0.6;
+        pointer-events: none;
+      }
+
+      .active-task-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        margin-bottom: 0.6rem;
+        position: relative;
+        z-index: 1;
+      }
+
+      #activeTaskLabel {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--accent-primary);
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      #activeTaskLabel i {
+        font-size: 0.9rem;
+      }
+
+      .active-task-pill {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        padding: 0.15rem 0.6rem;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        color: var(--text-muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+      }
+
+      #activeTaskTextarea {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        min-height: 90px;
+        resize: vertical;
+        font-size: 0.9rem;
+      }
+
+      .active-task-actions {
+        position: relative;
+        z-index: 1;
+        margin-top: 0.9rem;
+      }
+
+      .btn-ghost {
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.8rem;
+        padding: 0.45rem 0.9rem;
+      }
+
+      .btn-ghost:hover:not(:disabled) {
+        border-color: var(--accent-primary);
+        color: var(--accent-primary);
+        transform: translateY(-1px);
+        box-shadow: 0 0 14px rgba(0, 245, 255, 0.35);
+      }
+
+      .btn-ghost-primary {
+        border-color: rgba(59, 130, 246, 0.75);
+        color: #60a5fa;
+      }
+
+      .btn-ghost-primary:hover:not(:disabled) {
+        background: radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.2), transparent 65%);
+        box-shadow: 0 0 16px rgba(59, 130, 246, 0.45);
+      }
+
+      .btn-ghost-warning {
+        border-color: rgba(239, 68, 68, 0.75);
+        color: #fca5a5;
+      }
+
+      .btn-ghost-warning:hover:not(:disabled) {
+        box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
+      }
+
+      .btn-ghost-danger {
+        border-color: rgba(239, 68, 68, 0.75);
+        color: #fca5a5;
+      }
+
+      .btn-ghost-danger:hover:not(:disabled) {
+        box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
+      }
+
+      .btn-ghost-success {
+        border-color: rgba(16, 185, 129, 0.65);
+        color: #6ee7b7;
+      }
+
+      .btn-ghost-success:hover:not(:disabled) {
+        box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+      }
+
+      .btn-ghost-nav {
+        border-color: rgba(124, 58, 237, 0.7);
+        color: var(--accent-secondary);
+      }
+
+      .btn-ghost-nav:hover:not(:disabled) {
+        box-shadow: 0 0 14px rgba(124, 58, 237, 0.7);
+      }
+
+      .btn-circle {
+        border-radius: 999px;
+        padding: 0.45rem;
+        width: 2.4rem;
+        height: 2.4rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn-soft-disabled {
+        opacity: 0.6;
+        border-style: dashed;
+        border-color: rgba(148, 163, 184, 0.6);
+        color: rgba(148, 163, 184, 0.85);
+        cursor: default;
+        box-shadow: none !important;
+        transform: none !important;
+      }
+
+      .btn-soft-disabled:hover {
+        background: rgba(15, 23, 42, 0.9);
+      }
+
+      @media (max-width: 768px) {
+        .active-task-actions {
+          flex-direction: column;
+          align-items: stretch !important;
+        }
+      }
+
+      @media (min-width: 992px) {
+        .tasks-column {
+          flex: 0 0 60% !important;
+          max-width: 60% !important;
+        }
+        .trace-column {
+          flex: 0 0 40% !important;
+          max-width: 40% !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container py-5" style="max-width: 1000px;">
+      <header class="hero-section fade-in">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 1.5rem; margin-bottom: -0.9rem;">
+          <div class="hero-icon" style="margin-bottom: 0;">🤖</div>
+          <div style="position: relative;">
+            <h1 class="hero-title" style="margin-bottom: 0;">
+              Agent TODO Executor
+            </h1>
+            <sup style="position: absolute; top: -1.5rem; right: 0rem; font-size: 0.06em;">
+              <span class="badge-glow" style="display: inline-flex; align-items: center; padding: 0.3rem 0.7rem; font-size: 0.8rem; white-space: nowrap; background: rgba(0, 245, 255, 0.15); color: var(--accent-primary); font-weight: 600; text-transform: none;">
+                <i class="bi bi-lightning-charge-fill me-1"></i> AI-Powered
+              </span>
+            </sup>
+          </div>
+        </div>
+        <p class="hero-subtitle" style="margin-bottom: 0;">
+          Plan. Execute. Reflect.
+        </p>
+        
+      </header>
+
+      <!-- Control Panel -->
+      <section class="mb-5 fade-in" style="animation-delay: 0.1s; margin-top: 0;">
+        <div class="glass-card">
+          <div class="card-body p-4">
+            <div class="mb-4">
+              <label for="goal" class="form-label">
+                <i class="bi bi-bullseye"></i> Your Goal
+              </label>
+              <textarea
+                id="goal"
+                class="form-control"
+                rows="2"
+                placeholder="Example: Research the latest AI trends and create a summary report..."
+              ></textarea>
+              <div class="form-text" style="margin-top: 0.75rem; font-size: 0.95rem;">
+                Enter your goal and the agent will break it down into actionable tasks and execute them using your selected provider.
+              </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+              <div class="col-md-4">
+                <label for="mode" class="form-label">
+                  <i class="bi bi-sliders"></i> Execution Mode
+                </label>
+                <select id="mode" class="form-select">
+                  <option value="confirm">Confirm before execute</option>
+                  <option value="auto">Auto execute</option>
+                </select>
+                <div class="form-text">
+                  Confirm: Review each task before execution. Auto: Run all tasks automatically.
+                </div>
+              </div>
+
+              <div class="col-md-4">
+                <label for="provider" class="form-label">
+                  <i class="bi bi-cpu"></i> LLM Provider
+                </label>
+                <select id="provider" class="form-select">
+                  <option value="mock">Mock (Simulated)</option>
+                  <option value="ollama">Ollama (local)</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="hf">Hugging Face</option>
+                </select>
+                <div class="form-text">
+                  Mock: Simulated for testing. Ollama: Local AI (requires installation). OpenAI/HF: API-based with shared quota.
+                </div>
+              </div>
+
+              <div class="col-md-4 d-flex flex-column">
+                <label class="form-label" style="opacity: 0;">Actions</label>
+                <div class="d-flex flex-grow-1 align-items-start">
+                  <button
+                    id="planBtn"
+                    class="btn btn-primary-gradient flex-fill"
+                    type="button"
+                    style="white-space: nowrap;"
+                  >
+                    <i class="bi bi-stars"></i> Plan
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div id="message" class="message-alert" style="display: none;"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tasks and Trace -->
+      <section class="row g-4 fade-in" style="animation-delay: 0.2s;">
+        <!-- Task List -->
+        <div class="col-lg-5 tasks-column">
+          <div class="glass-card h-100">
+            <div class="card-header-custom">
+              <h5 class="card-header-title">
+                <i class="bi bi-list-check"></i>
+                <span>Planned Tasks</span>
+              </h5>
+            </div>
+            <div class="card-body p-4">
+              <div class="active-task-block">
+                <div class="active-task-header">
+                  <div id="activeTaskLabel">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Active pending task</span>
+                  </div>
+                </div>
+                <textarea
+                  id="activeTaskTextarea"
+                  class="form-control"
+                  rows="3"
+                  placeholder="The active task will appear here when available. You can refine it before execution..."
+                ></textarea>
+
+                <div class="active-task-actions d-flex flex-column gap-2 mt-2">
+                  <div class="d-flex flex-wrap gap-2 justify-content-center">
+                    <button
+                      id="activeTaskAcceptBtn"
+                      type="button"
+                      class="btn btn-ghost-success btn-ghost d-none"
+                      disabled
+                    >
+                      <i class="bi bi-check-circle-fill me-1"></i>
+                      Accept changes
+                    </button>
+                    <button
+                      id="activeTaskRejectBtn"
+                      type="button"
+                      class="btn btn-ghost-danger btn-ghost d-none"
+                      disabled
+                    >
+                      <i class="bi bi-x-octagon-fill me-1"></i>
+                      Reject changes
+                    </button>
+                  </div>
+
+                  <div class="d-flex flex-wrap gap-2 align-items-center justify-content-center">
+                    <button
+                      id="activeTaskPrevBtn"
+                      type="button"
+                      class="btn btn-ghost btn-ghost-nav btn-circle"
+                    >
+                      <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button
+                      id="activeTaskNextBtn"
+                      type="button"
+                      class="btn btn-ghost btn-ghost-nav btn-circle"
+                    >
+                      <i class="bi bi-chevron-right"></i>
+                    </button>
+
+                    <button
+                      id="activeTaskExecuteBtn"
+                      type="button"
+                      class="btn btn-ghost-success btn-ghost"
+                    >
+                      <i class="bi bi-play-fill me-1"></i>
+                      Execute
+                    </button>
+                    <button
+                      id="activeTaskRegenerateBtn"
+                      type="button"
+                      class="btn btn-ghost-primary btn-ghost"
+                    >
+                      <i class="bi bi-arrow-repeat me-1"></i>
+                      Regenerate
+                    </button>
+                    <button
+                      id="activeTaskCancelBtn"
+                      type="button"
+                      class="btn btn-ghost-warning btn-ghost"
+                    >
+                      <i class="bi bi-x-circle-fill me-1"></i>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="terminal-window">
+                <ul id="taskList" class="list-group list-group-flush mb-0">
+                  <li class="list-group-item">
+                    <span class="task-text">No tasks yet.</span><br>
+                    <small>Enter your goal and generate a plan to begin</small>
+                  </li>
+                </ul>
+              </div>
+            </div>            
+          </div>
+        </div>
+
+        <!-- Agent Trace -->
+        <div class="col-lg-7 trace-column">
+          <div class="glass-card h-100">
+            <div class="card-header-custom d-flex justify-content-between align-items-center">
+              <h5 class="card-header-title">
+                <i class="bi bi-terminal"></i>
+                <span>Execution Trace</span>
+              </h5>
+              <span class="badge-logs">
+                <i class="bi bi-activity me-1"></i>Live Logs
+              </span>
+            </div>
+            <div class="card-body p-4">
+              <div class="terminal-window">
+                <pre id="traceBox"></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="text-center mt-5" style="padding: 2rem 0 1rem 0;">
+        <div style="padding-top: 1.25rem; position: relative;">
+          <div style="position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent-primary), transparent); box-shadow: 0 0 20px var(--glow-primary);"></div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0; font-weight: 400;">
+            —— &emsp; MVP Demo • Built by <span style="color: var(--accent-tertiary); font-weight: 600;">Swati Swati</span> • 
+            <a href="mailto:swati17293@gmail.com" style="color: var(--text-muted); font-weight: 500; opacity: 0.8;">swati17293@gmail.com</a> &emsp; ——
+          </p>
+        </div>
+      </footer>
+      
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

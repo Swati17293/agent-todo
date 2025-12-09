@@ -1,0 +1,10 @@
+# Python caches
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+venv/
+
+# Deployment artifacts (optional)
+deploy/.dockerignore
